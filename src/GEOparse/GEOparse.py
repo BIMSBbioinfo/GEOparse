@@ -39,6 +39,7 @@ def get_GEO(
     annotate_gpl=False,
     geotype=None,
     include_data=False,
+    include=["series", "sample", "platform", "database"],
     silent=False,
     aspera=False,
     partial=None,
@@ -63,6 +64,10 @@ def get_GEO(
             inferred from the ID or the file name.
         include_data (:obj:`bool`, optional): Full download of GPLs including
             series and samples. Defaults to False.
+        include (:obj:'list', optional): A list with entry types, one of 'series',
+            'sample', 'platform', 'database' (using all by default). Specifying which of
+            these types should be included. (Depending on the othr arguments some types
+            may remain empty even when explicitly included.)
         silent (:obj:`bool`, optional): Do not print anything. Defaults to
             False.
         aspera (:obj:`bool`, optional): EXPERIMENTAL Download using Aspera
@@ -110,7 +115,7 @@ def get_GEO(
     if geotype.upper() == "GSM":
         return parse_GSM(filepath, open_kwargs=open_kwargs)
     elif geotype.upper() == "GSE":
-        return parse_GSE(filepath, open_kwargs=open_kwargs)
+        return parse_GSE(filepath, open_kwargs=open_kwargs, include=include)
     elif geotype.upper() == "GPL":
         return parse_GPL(filepath, partial=partial, open_kwargs=open_kwargs)
     elif geotype.upper() == "GDS":
@@ -565,13 +570,19 @@ def parse_GPL(filepath, entry_name=None, partial=None, open_kwargs=None):
     return gpl
 
 
-def parse_GSE(filepath, open_kwargs=None):
+def parse_GSE(
+    filepath, open_kwargs=None, include=["series", "sample", "platform", "database"]
+):
     """Parse GSE SOFT file.
 
     Args:
         filepath (:obj:`str`): Path to GSE SOFT file.
         open_kwargs (:obj:'dict', optional): A dict of kwargs that will be
             passed to `utils.smart_open` function.
+        include (:obj:'list', optional): A list with entry types, one of 'series',
+            'sample', 'platform', 'database' (using all by default). Specifying which of
+            these types should be included. (Depending on the file provided some types
+            may remain empty even when explicitly included.)
 
     Returns:
         :obj:`GEOparse.GSE`: A GSE object.
@@ -588,7 +599,18 @@ def parse_GSE(filepath, open_kwargs=None):
         for is_new_entry, group in groupper:
             if is_new_entry:
                 entry_type, entry_name = __parse_entry(next(group))
-                logger.debug("%s: %s" % (entry_type.upper(), entry_name))
+
+                if entry_type.lower() not in include:
+                    logger.debug(
+                        f"Skipping entry type {entry_type.lower()}, not part of the "
+                        f"requested entry types ({include}.)"
+                    )
+
+                    continue
+
+                else:
+                    logger.debug("%s: %s" % (entry_type.upper(), entry_name))
+
                 if entry_type == "SERIES":
                     gse_name = entry_name
                     series_counter += 1
