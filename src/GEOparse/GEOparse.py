@@ -40,6 +40,7 @@ def get_GEO(
     geotype=None,
     include_data=False,
     include=["series", "sample", "platform", "database"],
+    include_table=True,
     silent=False,
     aspera=False,
     partial=None,
@@ -78,6 +79,9 @@ def get_GEO(
             is a GPL.
         open_kwargs (:obj:'dict', optional): A dict of kwargs that will be
             passed to `utils.smart_open` function.
+        include_table(:obj:`bool`, optional): Whether or not table data should be
+            parsed. If false, this may save memory when only the metadata are of
+            interest.
 
 
     Returns:
@@ -113,13 +117,27 @@ def get_GEO(
 
     logger.info("Parsing %s: " % filepath)
     if geotype.upper() == "GSM":
-        return parse_GSM(filepath, open_kwargs=open_kwargs)
+        return parse_GSM(filepath, open_kwargs=open_kwargs, include_table=include_table)
     elif geotype.upper() == "GSE":
-        return parse_GSE(filepath, open_kwargs=open_kwargs, include=include)
+        return parse_GSE(
+            filepath,
+            open_kwargs=open_kwargs,
+            include=include,
+            include_table=include_table,
+        )
     elif geotype.upper() == "GPL":
-        return parse_GPL(filepath, partial=partial, open_kwargs=open_kwargs)
+        return parse_GPL(
+            filepath,
+            partial=partial,
+            open_kwargs=open_kwargs,
+            include_table=include_table,
+        )
     elif geotype.upper() == "GDS":
-        return parse_GDS(filepath, open_kwargs=open_kwargs)
+        return parse_GDS(
+            filepath,
+            open_kwargs=open_kwargs,
+            include_table=include_table,
+        )
     else:
         raise ValueError(
             ("Unknown GEO type: %s. Available types: GSM, GSE, " "GPL and GDS.")
@@ -408,7 +426,7 @@ def parse_table_data(lines):
         return DataFrame()
 
 
-def parse_GSM(filepath, entry_name=None, open_kwargs=None):
+def parse_GSM(filepath, entry_name=None, open_kwargs=None, include_table=True):
     """Parse GSM entry from SOFT file.
 
     Args:
@@ -418,6 +436,9 @@ def parse_GSM(filepath, entry_name=None, open_kwargs=None):
             inferred from the data.
         open_kwargs (:obj:'dict', optional): A dict of kwargs that will be
             passed to `utils.smart_open` function.
+        include_table(:obj:`bool`, optional): Whether or not table data should be
+            parsed. If false, this may save memory when only the metadata are of
+            interest.
 
     Returns:
         :obj:`GEOparse.GSM`: A GSM object.
@@ -451,11 +472,13 @@ def parse_GSM(filepath, entry_name=None, open_kwargs=None):
             )
         entry_name = parse_entry_name(sets[0])
 
-    columns = parse_columns(soft)
     metadata = parse_metadata(soft)
-    if has_table:
+
+    if has_table and include_table:
+        columns = parse_columns(soft)
         table_data = parse_table_data(soft)
     else:
+        columns = DataFrame()
         table_data = DataFrame()
 
     gsm = GSM(name=entry_name, table=table_data, metadata=metadata, columns=columns)
@@ -463,7 +486,9 @@ def parse_GSM(filepath, entry_name=None, open_kwargs=None):
     return gsm
 
 
-def parse_GPL(filepath, entry_name=None, partial=None, open_kwargs=None):
+def parse_GPL(
+    filepath, entry_name=None, partial=None, open_kwargs=None, include_table=True
+):
     """Parse GPL entry from SOFT file.
 
     Args:
@@ -476,6 +501,9 @@ def parse_GPL(filepath, entry_name=None, partial=None, open_kwargs=None):
             is a GPL.
         open_kwargs (:obj:'dict', optional): A dict of kwargs that will be
             passed to `utils.smart_open` function.
+        include_table(:obj:`bool`, optional): Whether or not table data should be
+            parsed. If false, this may save memory when only the metadata are of
+            interest.
 
     Returns:
         :obj:`GEOparse.GPL`: A GPL object.
@@ -539,17 +567,17 @@ def parse_GPL(filepath, entry_name=None, partial=None, open_kwargs=None):
                 has_table = True
             gpl_soft.append(line.rstrip())
 
-    columns = None
-    try:
-        columns = parse_columns(gpl_soft)
-    except Exception:
-        pass
     metadata = parse_metadata(gpl_soft)
 
-    if has_table:
+    if has_table and include_table:
+        try:
+            columns = parse_columns(gpl_soft)
+        except Exception:
+            pass
         table_data = parse_table_data(gpl_soft)
     else:
         table_data = DataFrame()
+        columns = DataFrame()
 
     gpl = GPL(
         name=gpl_name,
@@ -571,7 +599,10 @@ def parse_GPL(filepath, entry_name=None, partial=None, open_kwargs=None):
 
 
 def parse_GSE(
-    filepath, open_kwargs=None, include=["series", "sample", "platform", "database"]
+    filepath,
+    open_kwargs=None,
+    include=["series", "sample", "platform", "database"],
+    include_table=True,
 ):
     """Parse GSE SOFT file.
 
@@ -583,6 +614,9 @@ def parse_GSE(
             'sample', 'platform', 'database' (using all by default). Specifying which of
             these types should be included. (Depending on the file provided some types
             may remain empty even when explicitly included.)
+        include_table(:obj:`bool`, optional): Whether or not table data for daughter
+            objects (e.g. GSM, GPL) should be parsed. If false, this may save memory
+            when only the metadata are of interest.
 
     Returns:
         :obj:`GEOparse.GSE`: A GSE object.
@@ -627,10 +661,14 @@ def parse_GSE(
                     metadata = parse_metadata(data_group)
                 elif entry_type == "SAMPLE":
                     is_data, data_group = next(groupper)
-                    gsms[entry_name] = parse_GSM(data_group, entry_name)
+                    gsms[entry_name] = parse_GSM(
+                        data_group, entry_name, include_table=include_table
+                    )
                 elif entry_type == "PLATFORM":
                     is_data, data_group = next(groupper)
-                    gpls[entry_name] = parse_GPL(data_group, entry_name)
+                    gpls[entry_name] = parse_GPL(
+                        data_group, entry_name, include_table=include_table
+                    )
                 elif entry_type == "DATABASE":
                     is_data, data_group = next(groupper)
                     database_metadata = parse_metadata(data_group)
@@ -641,13 +679,16 @@ def parse_GSE(
     return gse
 
 
-def parse_GDS(filepath, open_kwargs=None):
+def parse_GDS(filepath, open_kwargs=None, include_table=True):
     """Parse GDS SOFT file.
 
     Args:
         filepath (:obj:`str`): Path to GDS SOFT file.
         open_kwargs (:obj:'dict', optional): A dict of kwargs that will be
             passed to `utils.smart_open` function.
+        include_table(:obj:`bool`, optional): Whether or not table data should be
+            parsed. If false, this may save memory when only the metadata are of
+            interest.
 
     Returns:
         :obj:`GEOparse.GDS`: A GDS object.
@@ -693,8 +734,14 @@ def parse_GDS(filepath, open_kwargs=None):
                     logger.error("Cannot recognize type %s" % entry_type)
 
     metadata = parse_metadata(dataset_lines)
-    columns = parse_GDS_columns(dataset_lines, subsets)
-    table = parse_table_data(dataset_lines)
+
+    if include_table:
+        columns = parse_GDS_columns(dataset_lines, subsets)
+        table = parse_table_data(dataset_lines)
+    else:
+        columns = DataFrame()
+        table = DataFrame()
+
     return GDS(
         name=dataset_name,
         metadata=metadata,
