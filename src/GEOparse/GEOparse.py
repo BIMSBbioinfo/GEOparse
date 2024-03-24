@@ -145,6 +145,103 @@ def get_GEO(
         )
 
 
+def get_GEO_file_url(geo, annotate_gpl=False, how="full", include_data=False):
+    """Determine the URL and destination file path for GEO data."""
+    geo = geo.upper()
+    geotype = geo[:3]
+    range_subdir = sub(r"\d{1,3}$", "nnn", geo)
+
+    dl_file_types = {
+        "soft": "{record}.soft.gz",
+        "text": "{record}.txt",
+        "annot": "{record}.annot.gz",
+    }
+
+    if geotype == "GDS":
+        gseurl = (
+            "ftp://ftp.ncbi.nlm.nih.gov/geo/"
+            "{root}/{range_subdir}/{record}/soft/{record_file}"
+        )
+        url = gseurl.format(
+            root="datasets",
+            range_subdir=range_subdir,
+            record=geo,
+            record_file="%s.soft.gz" % geo,
+        )
+        filename = dl_file_types["soft"].format(record=geo)
+    elif geotype == "GSE":
+        if how == "full":
+            gseurl = (
+                "ftp://ftp.ncbi.nlm.nih.gov/geo/"
+                "{root}/{range_subdir}/{record}/soft/{record_file}"
+            )
+            url = gseurl.format(
+                root="series",
+                range_subdir=range_subdir,
+                record=geo,
+                record_file="%s_family.soft.gz" % geo,
+            )
+            filename = dl_file_types["soft"].format(record=geo)
+        else:
+            gseurl = (
+                "http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi"
+                "?targ=gsm&acc={record}&form=text&view={how}"
+            )
+            url = gseurl.format(record=geo, how=how)
+            filename = dl_file_types["text"].format(record=geo)
+    elif geotype == "GSM":
+        gsmurl = (
+            "http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi"
+            "?targ=self&acc={record}&form=text&view={how}"
+        )
+        url = gsmurl.format(record=geo, how=how)
+        filename = dl_file_types["text"].format(record=geo)
+    elif geotype == "GPL":
+        if annotate_gpl:
+            gplurl = (
+                "ftp://ftp.ncbi.nlm.nih.gov/geo/"
+                "{root}/{range_subdir}/{record}/annot/{record_file}"
+            )
+            test_url = gplurl.format(
+                root="platforms",
+                range_subdir=range_subdir,
+                record=geo,
+                record_file="%s.annot.gz" % geo,
+            )
+
+            try:
+                urlopen(test_url)
+                annotations_available = True
+            except URLError:
+                logger.info(
+                    "Annotations for %s are not available, trying submitter GPL" % geo
+                )
+                annotations_available = False
+
+        if annotate_gpl and annotations_available:
+            url = test_url
+            filename = dl_file_types["annot"].format(record=geo)
+
+        elif include_data:
+            url = (
+                "ftp://ftp.ncbi.nlm.nih.gov/geo/platforms/"
+                "{0}/{1}/soft/{1}_family.soft.gz"
+            ).format(range_subdir, geo)
+            filename = dl_file_types["soft"].format(record=geo)
+
+        else:
+            gplurl = (
+                "http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi"
+                "?targ=self&acc={record}&form=text&view={how}"
+            )
+            url = gplurl.format(record=geo, how=how)
+            filename = dl_file_types["text"].format(record=geo)
+    else:
+        raise UnknownGEOTypeException("%s type is not known" % geotype)
+
+    return url, filename
+
+
 def get_GEO_file(
     geo,
     destdir=None,
@@ -179,7 +276,11 @@ def get_GEO_file(
     """
     geo = geo.upper()
     geotype = geo[:3]
-    range_subdir = sub(r"\d{1,3}$", "nnn", geo)
+
+    url, dest_file_name = get_GEO_file_url(
+        geo, annotate_gpl=annotate_gpl, how=how, include_data=include_data
+    )
+
     if destdir is None:
         tmpdir = mkdtemp()
         logger.info(
@@ -190,96 +291,7 @@ def get_GEO_file(
         tmpdir = destdir
         utils.mkdir_p(tmpdir)
 
-    if geotype == "GDS":
-        gseurl = (
-            "ftp://ftp.ncbi.nlm.nih.gov/geo/"
-            "{root}/{range_subdir}/{record}/soft/{record_file}"
-        )
-        url = gseurl.format(
-            root="datasets",
-            range_subdir=range_subdir,
-            record=geo,
-            record_file="%s.soft.gz" % geo,
-        )
-        filepath = path.join(tmpdir, "{record}.soft.gz".format(record=geo))
-    elif geotype == "GSE":
-        if how == "full":
-            gseurl = (
-                "ftp://ftp.ncbi.nlm.nih.gov/geo/"
-                "{root}/{range_subdir}/{record}/soft/{record_file}"
-            )
-            url = gseurl.format(
-                root="series",
-                range_subdir=range_subdir,
-                record=geo,
-                record_file="%s_family.soft.gz" % geo,
-            )
-            filepath = path.join(tmpdir, "{record}_family.soft.gz".format(record=geo))
-        else:
-            gseurl = (
-                "http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi"
-                "?targ=gsm&acc={record}&form=text&view={how}"
-            )
-            url = gseurl.format(record=geo, how=how)
-            filepath = path.join(tmpdir, "{record}.txt".format(record=geo))
-    elif geotype == "GSM":
-        gsmurl = (
-            "http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi"
-            "?targ=self&acc={record}&form=text&view={how}"
-        )
-        url = gsmurl.format(record=geo, how=how)
-        filepath = path.join(tmpdir, "{record}.txt".format(record=geo))
-    elif geotype == "GPL":
-        if annotate_gpl:
-            gplurl = (
-                "ftp://ftp.ncbi.nlm.nih.gov/geo/"
-                "{root}/{range_subdir}/{record}/annot/{record_file}"
-            )
-            url = gplurl.format(
-                root="platforms",
-                range_subdir=range_subdir,
-                record=geo,
-                record_file="%s.annot.gz" % geo,
-            )
-            filepath = path.join(tmpdir, "{record}.annot.gz".format(record=geo))
-            if not path.isfile(filepath):
-                try:
-                    logger.info("Downloading %s to %s" % (url, filepath))
-                    utils.download_from_url(url, filepath, silent=silent, aspera=aspera)
-                    return filepath, geotype
-                except URLError:
-                    logger.info(
-                        (
-                            "Annotations for %s are not available, "
-                            "trying submitter GPL"
-                        )
-                        % geo
-                    )
-            else:
-                logger.info("File already exist: using local version.")
-                return filepath, geotype
-
-        if include_data:
-            url = (
-                "ftp://ftp.ncbi.nlm.nih.gov/geo/platforms/"
-                "{0}/{1}/soft/{1}_family.soft.gz"
-            ).format(range_subdir, geo)
-            filepath = path.join(tmpdir, "{record}_family.soft.gz".format(record=geo))
-        else:
-            gplurl = (
-                "http://www.ncbi.nlm.nih.gov/geo/query/acc.cgi"
-                "?targ=self&acc={record}&form=text&view={how}"
-            )
-            url = gplurl.format(record=geo, how=how)
-            filepath = path.join(tmpdir, "{record}.txt".format(record=geo))
-        if not path.isfile(filepath):
-            logger.info("Downloading %s to %s" % (url, filepath))
-            utils.download_from_url(url, filepath, silent=silent, aspera=aspera)
-        else:
-            logger.info("File already exist: using local version.")
-        return filepath, geotype
-    else:
-        raise UnknownGEOTypeException("%s type is not known" % geotype)
+    filepath = path.join(tmpdir, dest_file_name)
 
     if not path.isfile(filepath):
         logger.info("Downloading %s to %s" % (url, filepath))
