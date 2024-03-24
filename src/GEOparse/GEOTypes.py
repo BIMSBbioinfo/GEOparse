@@ -271,7 +271,11 @@ class SimpleGEO(BaseGEO):
                 + "Columns in table are: %s\n" % columns_in_table
                 + "Index in columns are: %s\n" % rows_in_columns
             )
-        if self.columns.columns[0] != "description":
+
+        # Only check for description col if columns are present.
+        # Tbh I don't know for sure that this always works, but previously there was
+        # an error if columns was empty.
+        if len(self.columns.columns) > 0 and self.columns.columns[0] != "description":
             raise ValueError(
                 (
                     "Columns table must contain a column named"
