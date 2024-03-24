@@ -1,4 +1,4 @@
-.PHONY: clean-pyc clean-build docs clean
+.PHONY: clean-pyc clean-build docs clean clean-venv
 
 help:
 	@echo "clean - remove all build, test, coverage and Python artifacts"
@@ -15,7 +15,10 @@ help:
 	@echo "dist - package"
 	@echo "install - install the package to the active Python's site-packages"
 
-clean: clean-build clean-pyc clean-test
+clean: clean-venv clean-build clean-pyc clean-test
+
+clean-venv:
+	rm -fr .venv
 
 clean-build:
 	rm -fr build/
@@ -72,6 +75,13 @@ dist: clean
 	python setup.py sdist
 	python setup.py bdist_wheel
 	ls -l dist
+
+.venv:
+	python3 -m venv .venv
+
+venv-install: clean-venv .venv
+	. .venv/bin/activate && \
+		python setup.py install
 
 install: clean
 	python setup.py install
