@@ -22,7 +22,7 @@ with open("HISTORY.rst") as history_file:
 
 # TODO: Automatically add requirements from requirements.txt
 requirements = [
-    "numpy>=1.7",
+    "numpy<2,>=1.7",
     "pandas>=0.17",
     "requests>=2.21.0",
     "tqdm>=4.31.1",
