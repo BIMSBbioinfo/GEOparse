@@ -1,5 +1,6 @@
 import glob
 import gzip
+import io
 import os
 import subprocess as sp
 import sys
@@ -16,10 +17,11 @@ from .downloader import Downloader
 from .logger import geoparse_logger as logger
 
 try:
+    from urllib.parse import urlparse
     from urllib.request import urlopen
     from urllib.error import URLError
 except ImportError:
-    from urllib2 import urlopen, URLError
+    from urllib2 import urlparse, urlopen, URLError
 
 
 def mkdir_p(path_to_dir):
@@ -90,7 +92,7 @@ def smart_open(filepath, **open_kwargs):
     """Open file intelligently depending on the source and python version.
 
     Args:
-        filepath (:obj:`str`): Path to the file.
+        filepath (:obj:`str`): Path or URL to the file.
 
     Yields:
         Context manager for file handle.
@@ -98,16 +100,34 @@ def smart_open(filepath, **open_kwargs):
     """
     if "errors" not in open_kwargs:
         open_kwargs["errors"] = "ignore"
-    if filepath[-2:] == "gz":
+
+    parsed_url = urlparse(filepath, scheme="file")
+
+    # In case of relative paths.
+    path = os.path.abspath(parsed_url.path)
+
+    # In case we are dealing with a file, we need to tweak the filepath a bit so
+    # it fits into the URL scheme.
+    if parsed_url.scheme == "file":
+        filepath = f"{parsed_url.scheme}://{parsed_url.netloc}{path}"
+
+    try:
+        dl_resp = urlopen(filepath)
+
+    except Exception as e:
+        logger.error(e)
+        sys.exit(1)
+
+    if parsed_url.path[-2:] == "gz":
         open_kwargs["mode"] = "rt"
-        fopen = gzip.open
+        fh = gzip.open(dl_resp, **open_kwargs)
     else:
-        open_kwargs["mode"] = "r"
-        fopen = open
-    if sys.version_info[0] < 3:
-        fh = fopen(filepath, **open_kwargs)
-    else:
-        fh = fopen(filepath, **open_kwargs)
+        match parsed_url.scheme:
+            case "file" | "http":
+                fh = io.TextIOWrapper(dl_resp.fp, **open_kwargs)
+            case _:
+                fh = open(dl_resp, **open_kwargs)
+
     try:
         yield fh
     except IOError:
