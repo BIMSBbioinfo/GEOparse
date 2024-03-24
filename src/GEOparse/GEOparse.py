@@ -34,6 +34,7 @@ class NoEntriesException(Exception):
 def get_GEO(
     geo=None,
     filepath=None,
+    cache=True,
     destdir="./",
     how="full",
     annotate_gpl=False,
@@ -54,6 +55,9 @@ def get_GEO(
     Args:
         geo (:obj:`str`): GEO database identifier.
         filepath (:obj:`str`): Path to local SOFT file. Defaults to None.
+        cache (:obj:`bool`, optional): Whether files should be saved to disk at all.
+            If set to false, data will be read directly from the remote location.
+            Defaults to "True".
         destdir (:obj:`str`, optional): Directory to download data. Defaults to
             None.
         how (:obj:`str`, optional): GSM download mode. Defaults to "full".
@@ -102,18 +106,28 @@ def get_GEO(
         logger.setLevel(100)  # More than critical
 
     if filepath is None:
-        filepath, geotype = get_GEO_file(
-            geo,
-            destdir=destdir,
-            how=how,
-            annotate_gpl=annotate_gpl,
-            include_data=include_data,
-            silent=silent,
-            aspera=aspera,
-        )
-    else:
+        if cache:
+            filepath, geotype = get_GEO_file(
+                geo,
+                destdir=destdir,
+                how=how,
+                annotate_gpl=annotate_gpl,
+                include_data=include_data,
+                silent=silent,
+                aspera=aspera,
+            )
+
+        else:
+            url, _ = get_GEO_file_url(
+                geo, annotate_gpl=annotate_gpl, how=how, include_data=include_data
+            )
+            filepath = url
+
         if geotype is None:
-            geotype = path.basename(filepath)[:3]
+            geotype = geo[:3]
+
+    if geotype is None:
+        geotype = path.basename(filepath)[:3]
 
     logger.info("Parsing %s: " % filepath)
     if geotype.upper() == "GSM":
