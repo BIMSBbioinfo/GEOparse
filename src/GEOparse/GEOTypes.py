@@ -442,7 +442,7 @@ class GSM(SimpleGEO):
             tmp_data = self.table.merge(
                 gpl.table, left_on=gsm_on, right_on=gpl_on, how="outer"
             )
-            tmp_data = tmp_data.groupby(group_by_column).mean()[[expression_column]]
+            tmp_data = tmp_data.groupby(group_by_column).mean(1)[[expression_column]]
         if rename:
             tmp_data.columns = [self.name]
         return tmp_data
