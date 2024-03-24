@@ -8,7 +8,9 @@ test_GEOparse
 Tests for `GEOparse` module.
 """
 
+import tempfile
 import unittest
+import os
 from os.path import abspath, dirname, isdir, isfile, join
 from sys import path
 
@@ -310,6 +312,22 @@ class TestGSM(unittest.TestCase):
             for f in downloaded_paths[k]["SRA"]:
                 self.assertTrue(isfile(f))
 
+    def test_get_geo_no_cache(self):
+        with tempfile.TemporaryDirectory(suffix="geoparse_test") as temp_dir:
+            geo = "GSE1563"
+            geo_no_cache = GEO.get_GEO(geo=geo, destdir=temp_dir, cache=False)
+
+            self.assertTrue(len(os.listdir(temp_dir)) == 0)
+
+            gsm_no_cache = next(iter(geo_no_cache.gsms.values()))
+
+            # Also ensure the object has all bits it should have
+            geo_cache = GEO.get_GEO(geo=geo, destdir=temp_dir, cache=True)
+            gsm_cache = next(iter(geo_cache.gsms.values()))
+
+            self.assertEqual(len(gsm_no_cache.table), len(gsm_cache.table))
+            self.assertEqual(len(gsm_no_cache.relations), len(gsm_cache.relations))
+
 
 class TestGPL(unittest.TestCase):
     """Test GPL class"""
@@ -472,6 +490,20 @@ class TestGPL(unittest.TestCase):
         )
         self.assertEqual(gpl.name, "GPL20814")
 
+    def test_get_geo_no_cache(self):
+        with tempfile.TemporaryDirectory(suffix="geoparse_test") as temp_dir:
+            geo = "GPL3053"
+            geo_no_cache = GEO.get_GEO(geo=geo, destdir=temp_dir, cache=False)
+
+            self.assertTrue(len(os.listdir(temp_dir)) == 0)
+
+            # Also ensure the object has all bits it should have
+            geo_cache = GEO.get_GEO(geo=geo, destdir=temp_dir, cache=True)
+
+            self.assertEqual(len(geo_no_cache.gsms), len(geo_cache.gsms))
+            self.assertEqual(len(geo_no_cache.gses), len(geo_cache.gses))
+            self.assertEqual(len(geo_no_cache.table), len(geo_cache.table))
+
 
 class TestGDS(unittest.TestCase):
     """Test GDS class"""
@@ -549,6 +581,20 @@ class TestGDS(unittest.TestCase):
         for subset_name, subset in iteritems(gds.subsets):
             self.assertEqual(len(subset.metadata.keys()), 4)
             self.assertTrue(isinstance(subset, GDSSubset))
+
+    def test_get_geo_no_cache(self):
+        with tempfile.TemporaryDirectory(suffix="geoparse_test") as temp_dir:
+            geo = "GDS507"
+            geo_no_cache = GEO.get_GEO(geo=geo, destdir=temp_dir, cache=False)
+
+            self.assertTrue(len(os.listdir(temp_dir)) == 0)
+
+            # Also ensure the object has all bits it should have
+            geo_cache = GEO.get_GEO(geo=geo, destdir=temp_dir, cache=True)
+
+            self.assertEqual(len(geo_no_cache.subsets), len(geo_cache.subsets))
+            self.assertEqual(len(geo_no_cache.relations), len(geo_cache.relations))
+            self.assertEqual(len(geo_no_cache.table), len(geo_cache.table))
 
 
 class TestGSE(unittest.TestCase):
@@ -707,6 +753,20 @@ class TestGSE(unittest.TestCase):
         for gpl_name, gpl in iteritems(gse.gpls):
             self.assertEqual(len(gpl.table.index), 12625)
             self.assertTrue(isinstance(gpl, GPL))
+
+    def test_get_geo_no_cache(self):
+        with tempfile.TemporaryDirectory(suffix="geoparse_test") as temp_dir:
+            geo = "GSE1563"
+            geo_no_cache = GEO.get_GEO(geo=geo, destdir=temp_dir, cache=False)
+
+            self.assertTrue(len(os.listdir(temp_dir)) == 0)
+
+            # Also ensure the object has all bits it should have
+            geo_cache = GEO.get_GEO(geo=geo, destdir=temp_dir, cache=True)
+
+            self.assertEqual(len(geo_no_cache.gsms), len(geo_cache.gsms))
+            self.assertEqual(len(geo_no_cache.gpls), len(geo_cache.gpls))
+            self.assertEqual(len(geo_no_cache.relations), len(geo_cache.relations))
 
 
 if __name__ == "__main__":
