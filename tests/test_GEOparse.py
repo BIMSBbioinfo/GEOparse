@@ -328,6 +328,21 @@ class TestGSM(unittest.TestCase):
             self.assertEqual(len(gsm_no_cache.table), len(gsm_cache.table))
             self.assertEqual(len(gsm_no_cache.relations), len(gsm_cache.relations))
 
+    def test_no_table(self):
+        geo = "GSE1563"
+        gse = GEO.get_GEO(geo=geo, cache=False, include_table=False)
+
+        gsm = next(iter(gse.gsms.values()))
+
+        self.assertTrue(len(gsm.table) == 0)
+
+        # Ensure that the gsm actually has a table
+        gse = GEO.get_GEO(geo=geo, cache=False, include_table=True)
+
+        gsm = next(iter(gse.gsms.values()))
+
+        self.assertTrue(len(gsm.table) > 0)
+
 
 class TestGPL(unittest.TestCase):
     """Test GPL class"""
@@ -503,6 +518,16 @@ class TestGPL(unittest.TestCase):
             self.assertEqual(len(geo_no_cache.gsms), len(geo_cache.gsms))
             self.assertEqual(len(geo_no_cache.gses), len(geo_cache.gses))
             self.assertEqual(len(geo_no_cache.table), len(geo_cache.table))
+
+    def test_no_table(self):
+        gpl = GEO.get_GEO(geo="GPL20814", cache=False, include_table=False)
+
+        self.assertTrue(len(gpl.table) == 0)
+
+        # Ensure it actually should have a table.
+        gpl = GEO.get_GEO(geo="GPL20814", cache=False, include_table=True)
+
+        self.assertTrue(len(gpl.table) > 0)
 
 
 class TestGDS(unittest.TestCase):
@@ -767,6 +792,25 @@ class TestGSE(unittest.TestCase):
             self.assertEqual(len(geo_no_cache.gsms), len(geo_cache.gsms))
             self.assertEqual(len(geo_no_cache.gpls), len(geo_cache.gpls))
             self.assertEqual(len(geo_no_cache.relations), len(geo_cache.relations))
+
+    def test_no_table(self):
+        geo = "GSE1563"
+        gse = GEO.get_GEO(geo=geo, cache=False, include_table=False)
+
+        gsm = next(iter(gse.gsms.values()))
+        self.assertTrue(len(gsm.table) == 0)
+
+        gpl = next(iter(gse.gpls.values()))
+        self.assertTrue(len(gpl.table) == 0)
+
+        # Ensure that the gsm actually has a table
+        gse = GEO.get_GEO(geo=geo, cache=False, include_table=True)
+
+        gsm = next(iter(gse.gsms.values()))
+        self.assertTrue(len(gsm.table) > 0)
+
+        gpl = next(iter(gse.gpls.values()))
+        self.assertTrue(len(gpl.table) > 0)
 
 
 if __name__ == "__main__":
