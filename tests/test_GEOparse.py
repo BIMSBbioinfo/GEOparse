@@ -211,7 +211,7 @@ class TestGSM(unittest.TestCase):
         except IndexError:
             self.fail("Empty line in the file causes an error.")
 
-    def test_no_table(self):
+    def test_no_table_error(self):
         try:
             GEO.get_GEO(filepath=join(download_geo, "GSM2795971.txt"), geotype="GSM")
         except Exception:
