@@ -55,6 +55,7 @@ docs/_build
 *.soft
 *.soft.gz
 *.gz
+*.sra
 !GSE105845_family.soft
 !GPL20814_family.soft
 tests/GPL96.txt
